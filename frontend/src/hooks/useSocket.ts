@@ -11,6 +11,7 @@ export function useSocket() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (config.isDemoMode) return;
     if (!isAuthenticated || !token) return;
 
     const socket = io(config.socketUrl, {

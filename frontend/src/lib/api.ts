@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { config } from './config';
+import { demoAdapter } from './demoApi';
 
 const api = axios.create({
   baseURL: config.apiUrl,
+  adapter: config.isDemoMode ? demoAdapter : undefined,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,7 +26,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = `${config.appBasePath}login`;
     }
     return Promise.reject(error);
   }

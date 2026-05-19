@@ -14,6 +14,7 @@ import orderRoutes from './routes/orders';
 import notificationRoutes from './routes/notifications';
 import reportRoutes from './routes/reports';
 import userRoutes from './routes/users';
+import { getAllowedOrigins } from './config/cors';
 
 const app = express();
 const server = http.createServer(app);
@@ -23,7 +24,7 @@ initSocket(server);
 
 // Middlewares
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: getAllowedOrigins(),
   credentials: true,
 }));
 app.use(express.json());
