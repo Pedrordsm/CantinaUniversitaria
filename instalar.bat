@@ -18,7 +18,7 @@ echo.
 echo [2/4] Copiando arquivo de configuracao...
 if not exist .env (
     copy .env.example .env
-    echo Arquivo .env criado. EDITE o arquivo backend\.env com suas credenciais do PostgreSQL!
+    echo Arquivo .env criado. O SQLite sera criado automaticamente em backend\data\cantina.sqlite.
 ) else (
     echo Arquivo .env ja existe.
 )
@@ -45,11 +45,10 @@ echo   Instalacao concluida!
 echo ========================================
 echo.
 echo PROXIMOS PASSOS:
-echo 1. Edite o arquivo backend\.env com suas credenciais do PostgreSQL
-echo 2. Execute: cd backend ^& npm run migrate
-echo 3. Execute: cd backend ^& npm run seed
-echo 4. Em um terminal: cd backend ^& npm run dev
-echo 5. Em outro terminal: cd frontend ^& npm run dev
+echo 1. Execute: cd backend ^& npm run migrate
+echo 2. Execute: cd backend ^& npm run seed
+echo 3. Em um terminal: cd backend ^& npm run dev
+echo 4. Em outro terminal: cd frontend ^& npm run dev
 echo.
 echo Acesse: http://localhost:5173
 echo.

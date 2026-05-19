@@ -30,7 +30,8 @@ router.post('/', authenticate, authorize('funcionario', 'gerente'), async (req: 
     );
     res.status(201).json(result.rows[0]);
   } catch (error: unknown) {
-    if ((error as { code?: string }).code === '23505') {
+    const code = (error as { code?: string }).code;
+    if (code === '23505' || code === 'SQLITE_CONSTRAINT_UNIQUE') {
       res.status(409).json({ error: 'Categoria já existe' });
       return;
     }

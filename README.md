@@ -1,24 +1,15 @@
 # 🍽️ Cantina Universitária
 
-Sistema completo de cantina universitária com React + TypeScript (frontend) e Node.js + PostgreSQL (backend).
+Sistema completo de cantina universitária com React + TypeScript (frontend) e Node.js + SQLite (backend).
 
 ## Pré-requisitos
 
 1. **Node.js** (v18+): https://nodejs.org/
-2. **PostgreSQL** (v14+): https://www.postgresql.org/download/
-3. **npm** (vem com Node.js)
+2. **npm** (vem com Node.js)
 
 ## Configuração Inicial
 
-### 1. Banco de Dados
-
-Abra o pgAdmin ou psql e execute:
-
-```sql
-CREATE DATABASE cantina_universitaria;
-```
-
-### 2. Backend
+### 1. Backend
 
 ```bash
 cd backend
@@ -30,7 +21,7 @@ Copie o arquivo de variáveis de ambiente:
 copy .env.example .env
 ```
 
-Edite o `.env` com suas credenciais do PostgreSQL.
+O SQLite usa `DB_PATH=data/cantina.sqlite` por padrão. O arquivo do banco será criado automaticamente ao executar as migrations.
 
 Execute as migrations (cria as tabelas):
 ```bash
@@ -49,7 +40,7 @@ npm run dev
 
 O backend roda em: http://localhost:3001
 
-### 3. Frontend
+### 2. Frontend
 
 ```bash
 cd frontend

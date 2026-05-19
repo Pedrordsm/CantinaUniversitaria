@@ -41,7 +41,7 @@ router.post(
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, name: user.name },
         process.env.JWT_SECRET || 'secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any }
       );
 
       res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
@@ -91,7 +91,7 @@ router.post(
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, name: user.name },
         process.env.JWT_SECRET || 'secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any }
       );
 
       res.json({

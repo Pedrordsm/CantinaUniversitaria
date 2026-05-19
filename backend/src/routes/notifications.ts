@@ -30,7 +30,7 @@ router.get('/unread-count', authenticate, async (req: Request, res: Response): P
     const { id: userId, role } = req.user!;
 
     const result = await pool.query(
-      `SELECT COUNT(*) FROM notifications
+      `SELECT COUNT(*) as count FROM notifications
        WHERE (user_id = $1 OR role = $2) AND is_read = FALSE`,
       [userId, role]
     );

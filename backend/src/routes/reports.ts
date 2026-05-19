@@ -19,7 +19,9 @@ router.get('/top-products', authenticate, authorize('gerente'), async (req: Requ
     }
     if (end_date) {
       dateFilter += ` AND o.created_at <= $${paramCount++}`;
-      params.push(new Date(end_date as string).setHours(23, 59, 59));
+      const endDate = new Date(end_date as string);
+      endDate.setHours(23, 59, 59, 999);
+      params.push(endDate.toISOString());
     }
 
     params.push(parseInt(limit as string));
@@ -72,7 +74,7 @@ router.get('/peak-hours', authenticate, authorize('gerente'), async (req: Reques
 
     const result = await pool.query(
       `SELECT
-        EXTRACT(HOUR FROM updated_at) as hour,
+        CAST(strftime('%H', updated_at) AS INTEGER) as hour,
         COUNT(*) as order_count,
         SUM(total) as total_revenue
        FROM orders
@@ -162,7 +164,7 @@ router.get('/user-cancellations', authenticate, authorize('gerente'), async (req
         COUNT(o.id) as total_orders,
         ROUND(
           CASE WHEN COUNT(o.id) > 0
-            THEN (u.cancel_count::decimal / COUNT(o.id)) * 100
+            THEN (CAST(u.cancel_count AS REAL) / COUNT(o.id)) * 100
             ELSE 0
           END, 2
         ) as cancel_rate
@@ -188,34 +190,34 @@ router.get('/summary', authenticate, authorize('gerente'), async (_req: Request,
       pool.query(`
         SELECT
           COUNT(*) as total,
-          COUNT(*) FILTER (WHERE status = 'pendente') as pendente,
-          COUNT(*) FILTER (WHERE status = 'aceito') as aceito,
-          COUNT(*) FILTER (WHERE status = 'em_preparo') as em_preparo,
-          COUNT(*) FILTER (WHERE status = 'pronto') as pronto,
-          COUNT(*) FILTER (WHERE status = 'retirado') as retirado,
-          COUNT(*) FILTER (WHERE status = 'cancelado') as cancelado
+          SUM(CASE WHEN status = 'pendente' THEN 1 ELSE 0 END) as pendente,
+          SUM(CASE WHEN status = 'aceito' THEN 1 ELSE 0 END) as aceito,
+          SUM(CASE WHEN status = 'em_preparo' THEN 1 ELSE 0 END) as em_preparo,
+          SUM(CASE WHEN status = 'pronto' THEN 1 ELSE 0 END) as pronto,
+          SUM(CASE WHEN status = 'retirado' THEN 1 ELSE 0 END) as retirado,
+          SUM(CASE WHEN status = 'cancelado' THEN 1 ELSE 0 END) as cancelado
         FROM orders
       `),
       pool.query(`
         SELECT
           COUNT(*) as total,
-          COUNT(*) FILTER (WHERE status = 'disponivel') as disponivel,
-          COUNT(*) FILTER (WHERE status = 'em_falta') as em_falta,
-          COUNT(*) FILTER (WHERE status = 'inativo') as inativo
+          SUM(CASE WHEN status = 'disponivel' THEN 1 ELSE 0 END) as disponivel,
+          SUM(CASE WHEN status = 'em_falta' THEN 1 ELSE 0 END) as em_falta,
+          SUM(CASE WHEN status = 'inativo' THEN 1 ELSE 0 END) as inativo
         FROM products
       `),
       pool.query(`
         SELECT
           COUNT(*) as total,
-          COUNT(*) FILTER (WHERE role = 'cliente') as clientes,
-          COUNT(*) FILTER (WHERE is_banned = TRUE) as banidos
+          SUM(CASE WHEN role = 'cliente' THEN 1 ELSE 0 END) as clientes,
+          SUM(CASE WHEN is_banned = 1 THEN 1 ELSE 0 END) as banidos
         FROM users
       `),
       pool.query(`
         SELECT
           COALESCE(SUM(total), 0) as total_revenue,
-          COALESCE(SUM(total) FILTER (WHERE DATE(created_at) = CURRENT_DATE), 0) as today_revenue,
-          COALESCE(SUM(total) FILTER (WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())), 0) as month_revenue
+          COALESCE(SUM(CASE WHEN DATE(created_at) = DATE('now') THEN total ELSE 0 END), 0) as today_revenue,
+          COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') THEN total ELSE 0 END), 0) as month_revenue
         FROM orders
         WHERE status NOT IN ('cancelado')
       `),

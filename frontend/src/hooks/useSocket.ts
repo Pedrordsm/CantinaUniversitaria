@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
+import { config } from '../lib/config';
 
 export function useSocket() {
   const { token, isAuthenticated } = useAuthStore();
@@ -12,7 +13,7 @@ export function useSocket() {
   useEffect(() => {
     if (!isAuthenticated || !token) return;
 
-    const socket = io('http://localhost:3001', {
+    const socket = io(config.socketUrl, {
       auth: { token },
       transports: ['websocket'],
     });

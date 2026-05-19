@@ -38,6 +38,8 @@ jobs:
         working-directory: frontend
         env:
           VITE_BASE_PATH: /CantinaUniversitaria/
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_SOCKET_URL: ${{ vars.VITE_SOCKET_URL }}
         run: npm run build
 
       - name: Prepare Pages SPA fallback

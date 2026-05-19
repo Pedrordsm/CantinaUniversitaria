@@ -145,6 +145,7 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
     // Verifica se usuário está banido
     const userCheck = await client.query('SELECT is_banned FROM users WHERE id = $1', [userId]);
     if (userCheck.rows[0]?.is_banned) {
+      await client.query('ROLLBACK');
       res.status(403).json({ error: 'Sua conta está banida' });
       return;
     }
@@ -154,10 +155,7 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
 
     // Valida e calcula total
     for (const item of items) {
-      const productResult = await client.query(
-        'SELECT * FROM products WHERE id = $1 FOR UPDATE',
-        [item.product_id]
-      );
+      const productResult = await client.query('SELECT * FROM products WHERE id = $1', [item.product_id]);
 
       if (productResult.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -366,9 +364,10 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
   try {
     await client.query('BEGIN');
 
-    const orderResult = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [id]);
+    const orderResult = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
 
     if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Pedido não encontrado' });
       return;
     }
@@ -377,17 +376,20 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
 
     // Cliente só pode cancelar seus próprios pedidos
     if (role === 'cliente' && order.user_id !== userId) {
+      await client.query('ROLLBACK');
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }
 
     // Cliente só pode cancelar pedidos pendentes
     if (role === 'cliente' && order.status !== 'pendente') {
+      await client.query('ROLLBACK');
       res.status(400).json({ error: 'Só é possível cancelar pedidos com status "pendente"' });
       return;
     }
 
     if (order.status === 'cancelado' || order.status === 'retirado') {
+      await client.query('ROLLBACK');
       res.status(400).json({ error: 'Este pedido não pode ser cancelado' });
       return;
     }

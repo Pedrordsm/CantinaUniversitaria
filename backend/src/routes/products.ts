@@ -33,7 +33,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (search) {
-      query += ` AND (p.name ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
+      query += ` AND (lower(p.name) LIKE lower($${paramCount}) OR lower(COALESCE(p.description, '')) LIKE lower($${paramCount}))`;
       params.push(`%${search}%`);
       paramCount++;
     }
@@ -246,7 +246,7 @@ router.delete(
 
       // Verifica se produto está em pedidos ativos
       const activeOrders = await pool.query(
-        `SELECT COUNT(*) FROM order_items oi
+        `SELECT COUNT(*) as count FROM order_items oi
          JOIN orders o ON oi.order_id = o.id
          WHERE oi.product_id = $1 AND o.status NOT IN ('retirado', 'cancelado')`,
         [id]
