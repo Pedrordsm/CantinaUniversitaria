@@ -3,8 +3,8 @@ import { config } from './config';
 import { demoAdapter } from './demoApi';
 
 const api = axios.create({
-  baseURL: config.apiUrl,
-  adapter: config.isDemoMode ? demoAdapter : undefined,
+  baseURL: '/api',
+  adapter: demoAdapter,
   headers: {
     'Content-Type': 'application/json',
   },

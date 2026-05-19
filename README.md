@@ -1,46 +1,15 @@
-# 🍽️ Cantina Universitária
+# Cantina Universitaria
 
-Sistema completo de cantina universitária com React + TypeScript (frontend) e Node.js + SQLite (backend).
+Aplicacao frontend em React + TypeScript para uma cantina universitaria.
 
-## Pré-requisitos
+O projeto roda em modo demo, com dados mockados e persistidos no `localStorage` do navegador. Nao ha backend, banco de dados, servidor Node ou API externa obrigatoria.
 
-1. **Node.js** (v18+): https://nodejs.org/
-2. **npm** (vem com Node.js)
+## Pre-requisitos
 
-## Configuração Inicial
+1. Node.js v18+
+2. npm
 
-### 1. Backend
-
-```bash
-cd backend
-npm install
-```
-
-Copie o arquivo de variáveis de ambiente:
-```bash
-copy .env.example .env
-```
-
-O SQLite usa `DB_PATH=data/cantina.sqlite` por padrão. O arquivo do banco será criado automaticamente ao executar as migrations.
-
-Execute as migrations (cria as tabelas):
-```bash
-npm run migrate
-```
-
-Popule o banco com dados iniciais:
-```bash
-npm run seed
-```
-
-Inicie o servidor:
-```bash
-npm run dev
-```
-
-O backend roda em: http://localhost:3001
-
-### 2. Frontend
+## Como rodar localmente
 
 ```bash
 cd frontend
@@ -48,45 +17,44 @@ npm install
 npm run dev
 ```
 
-O frontend roda em: http://localhost:5173
+O app abre em:
 
-## Usuários de Teste (após seed)
+```bash
+http://localhost:5173
+```
+
+## Publicacao
+
+O GitHub Pages publica apenas o build estatico do frontend em `frontend/dist`.
+
+O workflow em `.github/workflows/publish.yml` roda automaticamente a cada push na `main`.
+
+## Contas de teste
 
 | Email | Senha | Perfil |
-|-------|-------|--------|
+| --- | --- | --- |
 | gerente@cantina.com | 123456 | Gerente |
-| funcionario@cantina.com | 123456 | Funcionário |
+| funcionario@cantina.com | 123456 | Funcionario |
 | cliente@cantina.com | 123456 | Cliente |
+| pedro@cantina.com | 123456 | Cliente |
+
+Tambem e possivel criar novas contas pela tela de cadastro.
+
+## Dados demo
+
+Os dados ficam no navegador usando `localStorage`.
+
+Para resetar a demo, limpe os dados do site no navegador ou remova estas chaves:
+
+- `cantina-demo-db-v1`
+- `auth-storage`
+- `cart-storage`
 
 ## Funcionalidades
 
-### Cliente
-- Visualizar cardápio com produtos disponíveis
-- Adicionar/remover itens do carrinho
-- Definir quantidade desejada
-- Ver valor total do carrinho
-- Realizar pedido
-- Cancelar pedido (enquanto pendente)
-- Histórico de pedidos com status
-- Notificações em tempo real
-
-### Funcionário
-- CRUD completo de produtos (nome, preço, quantidade, foto)
-- Alterar status dos produtos (disponível / em falta)
-- Visualizar novos pedidos (com alerta sonoro/visual)
-- Aceitar ou cancelar pedidos
-- Notificações em tempo real
-
-### Gerente
-- Tudo que o funcionário pode fazer
-- Relatório de produtos mais vendidos
-- Relatório de horários de pico de retirada
-- Relatório de pedidos mais cancelados
-- Relatório de usuários que mais cancelam (para possível banimento)
-
-## Decisões de Projeto
-
-- **Quantidade no DB**: Produtos têm quantidade em estoque. Ao aceitar um pedido, a quantidade é decrementada. Se chegar a 0, o produto vai automaticamente para "em falta".
-- **Cancelamento**: Clientes podem cancelar pedidos com status "pendente". Funcionários podem cancelar pedidos em qualquer status antes de "pronto para retirada".
-- **Notificações**: Implementadas via WebSocket (Socket.io) para alertas em tempo real.
-- **Upload de fotos**: Armazenadas localmente em `backend/uploads/`.
+- Login e cadastro mockados
+- Cardapio com produtos e categorias
+- Carrinho e criacao de pedidos
+- Historico e cancelamento de pedidos
+- Gestao de produtos para funcionarios
+- Gestao de usuarios e relatorios basicos para gerentes

@@ -6,12 +6,9 @@ import { useMutation } from '@tanstack/react-query';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
 
-const BACKEND_URL = 'http://localhost:3001';
-
 function getImageUrl(url?: string) {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  return `${BACKEND_URL}${url}`;
+  return url;
 }
 
 export default function CartPage() {
