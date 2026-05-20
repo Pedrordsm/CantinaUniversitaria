@@ -16,6 +16,15 @@ const STATUS_LABELS: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
+const STATUS_BADGES: Record<string, string> = {
+  pendente: 'badge-pendente',
+  aceito: 'badge-aceito',
+  em_preparo: 'badge-em_preparo',
+  pronto: 'badge-pronto',
+  retirado: 'badge-retirado',
+  cancelado: 'badge-cancelado',
+};
+
 const STATUS_ICONS: Record<string, string> = {
   pendente: '⏳',
   aceito: '👍',
@@ -102,7 +111,7 @@ export default function OrdersPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className={`badge-${order.status}`}>{STATUS_LABELS[order.status]}</span>
+                <span className={STATUS_BADGES[order.status]}>{STATUS_LABELS[order.status]}</span>
                 <p className="text-sm font-bold text-gray-900 mt-1">R$ {Number(order.total).toFixed(2)}</p>
               </div>
               {isExpanded ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}

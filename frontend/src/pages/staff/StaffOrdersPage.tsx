@@ -16,6 +16,15 @@ const STATUS_LABELS: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
+const STATUS_BADGES: Record<string, string> = {
+  pendente: 'badge-pendente',
+  aceito: 'badge-aceito',
+  em_preparo: 'badge-em_preparo',
+  pronto: 'badge-pronto',
+  retirado: 'badge-retirado',
+  cancelado: 'badge-cancelado',
+};
+
 const NEXT_STATUS: Record<string, string> = {
   pendente: 'aceito',
   aceito: 'em_preparo',
@@ -152,7 +161,7 @@ export default function StaffOrdersPage() {
                           <p className="font-medium text-gray-900">
                             #{order.id.slice(0, 8).toUpperCase()}
                           </p>
-                          <span className={`badge-${order.status}`}>{STATUS_LABELS[order.status]}</span>
+                          <span className={STATUS_BADGES[order.status]}>{STATUS_LABELS[order.status]}</span>
                         </div>
                         <p className="text-sm text-gray-500">
                           {order.user_name} •{' '}

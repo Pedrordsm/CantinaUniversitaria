@@ -55,6 +55,15 @@ export default function UsersPage() {
     cancelado: 'Cancelado',
   };
 
+  const STATUS_BADGES: Record<string, string> = {
+    pendente: 'badge-pendente',
+    aceito: 'badge-aceito',
+    em_preparo: 'badge-em_preparo',
+    pronto: 'badge-pronto',
+    retirado: 'badge-retirado',
+    cancelado: 'badge-cancelado',
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -186,7 +195,7 @@ export default function UsersPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <span className={`badge-${order.status} block mb-1`}>{STATUS_LABELS[order.status]}</span>
+                        <span className={`${STATUS_BADGES[order.status]} mb-1`}>{STATUS_LABELS[order.status]}</span>
                         <p className="text-sm font-bold">R$ {Number(order.total).toFixed(2)}</p>
                       </div>
                     </div>

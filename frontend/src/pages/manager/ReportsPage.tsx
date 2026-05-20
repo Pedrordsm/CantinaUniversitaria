@@ -2,12 +2,16 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { TrendingUp, Clock, XCircle, Users, DollarSign, Package, ShoppingBag } from 'lucide-react';
 import api from '../../lib/api';
 
-const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'];
+type CancellationReport = {
+  id: string;
+  name: string;
+  cancel_count: number;
+  total_value_cancelled: number;
+};
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'summary' | 'products' | 'hours' | 'cancellations'>('summary');
@@ -53,6 +57,12 @@ export default function ReportsPage() {
     { id: 'hours', label: 'Horários de Pico', icon: Clock },
     { id: 'cancellations', label: 'Cancelamentos', icon: XCircle },
   ] as const;
+
+  const cancellationItems = cancellations as CancellationReport[];
+  const totalCancellations = cancellationItems.reduce((sum, item) => sum + item.cancel_count, 0);
+  const totalCancelledValue = cancellationItems.reduce((sum, item) => sum + item.total_value_cancelled, 0);
+  const mostCancelledProduct = cancellationItems[0];
+  const averageCancelledTicket = totalCancellations > 0 ? totalCancelledValue / totalCancellations : 0;
 
   return (
     <div>
@@ -234,56 +244,85 @@ export default function ReportsPage() {
       {/* Cancellations */}
       {activeTab === 'cancellations' && (
         <div className="space-y-6">
-          <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">Produtos com Mais Cancelamentos</h3>
-            {cancellations.length === 0 ? (
+          {cancellationItems.length === 0 ? (
+            <div className="card">
               <p className="text-gray-400 text-center py-8">Nenhum cancelamento registrado</p>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={cancellations}
-                      dataKey="cancel_count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    >
-                      {cancellations.map((_: unknown, index: number) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="card">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-red-100 rounded-lg"><XCircle size={20} className="text-red-600" /></div>
+                    <p className="text-sm text-gray-500">Cancelamentos</p>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{totalCancellations}</p>
+                </div>
 
+                <div className="card">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-amber-100 rounded-lg"><DollarSign size={20} className="text-amber-600" /></div>
+                    <p className="text-sm text-gray-500">Valor perdido</p>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">R$ {totalCancelledValue.toFixed(2)}</p>
+                </div>
+
+                <div className="card">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-blue-100 rounded-lg"><Package size={20} className="text-blue-600" /></div>
+                    <p className="text-sm text-gray-500">Mais cancelado</p>
+                  </div>
+                  <p className="text-xl font-bold text-gray-900 truncate">{mostCancelledProduct.name}</p>
+                  <p className="text-sm text-gray-500">{mostCancelledProduct.cancel_count} cancelamentos</p>
+                </div>
+
+                <div className="card">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-emerald-100 rounded-lg"><ShoppingBag size={20} className="text-emerald-600" /></div>
+                    <p className="text-sm text-gray-500">Ticket médio</p>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">R$ {averageCancelledTicket.toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 className="font-semibold text-gray-900 mb-4">Detalhes dos Cancelamentos</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-gray-500">
+                        <th className="pb-2 font-medium">#</th>
                         <th className="pb-2 font-medium">Produto</th>
                         <th className="pb-2 font-medium text-right">Cancelamentos</th>
+                        <th className="pb-2 font-medium text-right">Participação</th>
+                        <th className="pb-2 font-medium text-right">Ticket médio</th>
                         <th className="pb-2 font-medium text-right">Valor perdido</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {cancellations.map((c: { id: string; name: string; cancel_count: number; total_value_cancelled: number }) => (
-                        <tr key={c.id} className="border-b last:border-0">
-                          <td className="py-2 font-medium text-gray-900">{c.name}</td>
-                          <td className="py-2 text-right text-red-600 font-bold">{c.cancel_count}</td>
-                          <td className="py-2 text-right text-gray-500">
-                            R$ {Number(c.total_value_cancelled).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
+                      {cancellationItems.map((item, index) => {
+                        const participation = totalCancellations > 0 ? (item.cancel_count / totalCancellations) * 100 : 0;
+                        const averageValue = item.cancel_count > 0 ? item.total_value_cancelled / item.cancel_count : 0;
+
+                        return (
+                          <tr key={item.id} className="border-b last:border-0">
+                            <td className="py-2 text-gray-400">{index + 1}</td>
+                            <td className="py-2 font-medium text-gray-900">{item.name}</td>
+                            <td className="py-2 text-right text-red-600 font-bold">{item.cancel_count}</td>
+                            <td className="py-2 text-right">{participation.toFixed(1)}%</td>
+                            <td className="py-2 text-right text-gray-500">R$ {averageValue.toFixed(2)}</td>
+                            <td className="py-2 text-right font-medium text-gray-900">
+                              R$ {item.total_value_cancelled.toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -356,12 +356,25 @@ export const demoAdapter: AxiosAdapter = async (config) => {
 
   const orderStatusMatch = path.match(/^\/orders\/([^/]+)\/status$/);
   if (method === 'patch' && orderStatusMatch) {
+    const user = requireUser(config, db);
     const order = db.orders.find((item) => item.id === orderStatusMatch[1]);
     if (!order) fail(config, 404, 'Pedido nao encontrado');
-    order.status = String(body.status) as Order['status'];
-    order.cancel_reason = body.cancel_reason;
-    order.cancelled_by = order.status === 'cancelado' ? requireUser(config, db).role : order.cancelled_by;
+    const previousStatus = order.status;
+    const nextStatus = String(body.status) as Order['status'];
+    order.status = nextStatus;
+    order.cancel_reason = nextStatus === 'cancelado' ? String(body.cancel_reason || 'Cancelado pela cantina') : body.cancel_reason;
+    order.cancelled_by = nextStatus === 'cancelado' ? user.role : order.cancelled_by;
     order.updated_at = now();
+    if (nextStatus === 'cancelado' && previousStatus !== 'cancelado') {
+      order.items?.forEach((item) => {
+        const product = db.products.find((entry) => entry.id === item.product_id);
+        if (product) {
+          product.quantity += item.quantity;
+          if (product.status === 'em_falta') product.status = 'disponivel';
+          product.updated_at = now();
+        }
+      });
+    }
     saveDb(db);
     return response(config, withItems(order, db));
   }
@@ -371,6 +384,7 @@ export const demoAdapter: AxiosAdapter = async (config) => {
     const user = requireUser(config, db);
     const order = db.orders.find((item) => item.id === orderCancelMatch[1]);
     if (!order) fail(config, 404, 'Pedido nao encontrado');
+    if (order.status === 'cancelado') fail(config, 400, 'Pedido ja cancelado');
     order.status = 'cancelado';
     order.cancelled_by = user.role;
     order.cancel_reason = String(body.cancel_reason || 'Cancelado pelo cliente');
@@ -381,6 +395,7 @@ export const demoAdapter: AxiosAdapter = async (config) => {
       if (product) {
         product.quantity += item.quantity;
         if (product.status === 'em_falta') product.status = 'disponivel';
+        product.updated_at = now();
       }
     });
     saveDb(db);
@@ -409,9 +424,49 @@ export const demoAdapter: AxiosAdapter = async (config) => {
 
   if (method === 'get' && path === '/reports/summary') return response(config, buildSummary(db));
   if (method === 'get' && path === '/reports/peak-hours') {
-    return response(config, Array.from({ length: 24 }, (_, hour) => ({ hour, order_count: 0, total_revenue: 0 })));
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, order_count: 0, total_revenue: 0 }));
+
+    db.orders.forEach((order) => {
+      if (order.status !== 'retirado') return;
+
+      const pickedUpAt = new Date(order.updated_at);
+      if (Number.isNaN(pickedUpAt.getTime())) return;
+
+      const hour = pickedUpAt.getHours();
+      hours[hour].order_count += 1;
+      hours[hour].total_revenue += order.total;
+    });
+
+    return response(config, hours);
   }
-  if (method === 'get' && path === '/reports/cancellations') return response(config, []);
+  if (method === 'get' && path === '/reports/cancellations') {
+    const cancellations = new Map<string, { product: Product; cancel_count: number; total_value_cancelled: number }>();
+
+    db.orders.forEach((order) => {
+      if (order.status !== 'cancelado') return;
+      order.items?.forEach((item) => {
+        const product = db.products.find((entry) => entry.id === item.product_id);
+        if (!product) return;
+
+        const current = cancellations.get(product.id) || { product, cancel_count: 0, total_value_cancelled: 0 };
+        current.cancel_count += 1;
+        current.total_value_cancelled += item.subtotal;
+        cancellations.set(product.id, current);
+      });
+    });
+
+    return response(config, Array.from(cancellations.values())
+      .map((entry) => ({
+        ...entry.product,
+        cancel_count: entry.cancel_count,
+        total_value_cancelled: entry.total_value_cancelled,
+      }))
+      .sort((a, b) => (
+        b.cancel_count - a.cancel_count
+        || b.total_value_cancelled - a.total_value_cancelled
+        || a.name.localeCompare(b.name)
+      )));
+  }
   if (method === 'get' && path === '/reports/top-products') {
     const sold = new Map<string, { product: Product; total_sold: number; total_revenue: number; order_count: number }>();
     db.orders.forEach((order) => {
@@ -426,12 +481,21 @@ export const demoAdapter: AxiosAdapter = async (config) => {
         sold.set(product.id, current);
       });
     });
-    return response(config, Array.from(sold.values()).map((entry) => ({
-      ...entry.product,
-      total_sold: entry.total_sold,
-      total_revenue: entry.total_revenue,
-      order_count: entry.order_count,
-    })));
+    const limit = Number(requestUrl.searchParams.get('limit') || 0);
+    const topProducts = Array.from(sold.values())
+      .map((entry) => ({
+        ...entry.product,
+        total_sold: entry.total_sold,
+        total_revenue: entry.total_revenue,
+        order_count: entry.order_count,
+      }))
+      .sort((a, b) => (
+        b.total_sold - a.total_sold
+        || b.total_revenue - a.total_revenue
+        || a.name.localeCompare(b.name)
+      ));
+
+    return response(config, limit > 0 ? topProducts.slice(0, limit) : topProducts);
   }
 
   return fail(config, 404, 'Rota demo nao encontrada');
