@@ -43,7 +43,7 @@ export default function OrdersPage() {
     queryKey: ['orders'],
     queryFn: async () => {
       const res = await api.get('/orders');
-      return res.data as Order[];
+      return Array.isArray(res.data) ? res.data as Order[] : [];
     },
     refetchInterval: 15000,
   });

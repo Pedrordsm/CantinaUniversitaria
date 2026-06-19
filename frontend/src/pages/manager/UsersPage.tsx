@@ -16,7 +16,7 @@ export default function UsersPage() {
     queryKey: ['users'],
     queryFn: async () => {
       const res = await api.get('/users');
-      return res.data as User[];
+      return Array.isArray(res.data) ? res.data as User[] : [];
     },
   });
 
@@ -24,7 +24,7 @@ export default function UsersPage() {
     queryKey: ['user-orders', selectedUser?.id],
     queryFn: async () => {
       const res = await api.get(`/users/${selectedUser!.id}/orders`);
-      return res.data as Order[];
+      return Array.isArray(res.data) ? res.data as Order[] : [];
     },
     enabled: !!selectedUser,
   });

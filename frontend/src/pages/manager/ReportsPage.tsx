@@ -28,7 +28,7 @@ export default function ReportsPage() {
     queryKey: ['reports', 'top-products'],
     queryFn: async () => {
       const res = await api.get('/reports/top-products?limit=10');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : [];
     },
     enabled: activeTab === 'products',
   });
@@ -37,7 +37,7 @@ export default function ReportsPage() {
     queryKey: ['reports', 'peak-hours'],
     queryFn: async () => {
       const res = await api.get('/reports/peak-hours');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : [];
     },
     enabled: activeTab === 'hours',
   });
@@ -46,7 +46,7 @@ export default function ReportsPage() {
     queryKey: ['reports', 'cancellations'],
     queryFn: async () => {
       const res = await api.get('/reports/cancellations');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : [];
     },
     enabled: activeTab === 'cancellations',
   });

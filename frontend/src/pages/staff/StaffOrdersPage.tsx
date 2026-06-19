@@ -51,7 +51,7 @@ export default function StaffOrdersPage() {
     queryFn: async () => {
       const params = filterStatus ? `?status=${filterStatus}` : '';
       const res = await api.get(`/orders${params}`);
-      return res.data as Order[];
+      return Array.isArray(res.data) ? res.data as Order[] : [];
     },
     refetchInterval: 10000,
   });
