@@ -73,7 +73,7 @@ async function seed() {
 
     for (const [nome, descricao, preco, quantidade, catNome] of produtos) {
       const catId = catMap[String(catNome)];
-      const situacao = Number(quantidade) > 0 ? 'disponivel' : 'em_falta';
+      const situacao = Number(quantidade) > 0 ? 1 : 0;
       await client.query(
         `INSERT INTO produto (nome, descricao, preco, quantidade, situacao, fk_idcategoria)
          VALUES ($1, $2, $3, $4, $5, $6)

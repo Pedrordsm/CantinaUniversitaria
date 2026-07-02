@@ -1,6 +1,14 @@
 node_modules/
 dist/
 .env
+backend/.env
 uploads/
 *.log
 .DS_Store
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vscode/
+.idea/
+Thumbs.db

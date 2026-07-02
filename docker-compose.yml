@@ -1,0 +1,27 @@
+# /docker-compose.yml
+
+services:
+  backend:
+    build: 
+      context: ./backend
+    container_name: cantina_backend
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - cantina_uploads:/app/uploads
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: cantina_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  cantina_uploads:
