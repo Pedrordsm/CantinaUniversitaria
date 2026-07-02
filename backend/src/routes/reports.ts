@@ -61,7 +61,9 @@ router.get('/summary', authenticate, authorize('gerente'), async (_req: Request,
 // GET /api/reports/top-products
 router.get('/top-products', authenticate, authorize('gerente'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const limit = Number(req.query.limit || 0);
+    const limit = Math.max(0, Math.floor(Number(req.query.limit || 0)));
+    const params: unknown[] = [];
+    const limitClause = limit > 0 ? `LIMIT $${(params.push(limit), params.length)}` : '';
 
     const result = await pool.query(`
       SELECT
@@ -78,8 +80,8 @@ router.get('/top-products', authenticate, authorize('gerente'), async (req: Requ
       WHERE pe.situacao != 'cancelado'
       GROUP BY p.idproduto, p.nome, p.preco, p.situacao
       ORDER BY total_sold DESC, total_revenue DESC, name ASC
-      ${limit > 0 ? `LIMIT ${limit}` : ''}
-    `);
+      ${limitClause}
+    `, params);
 
     res.json(result.rows);
   } catch (err) {

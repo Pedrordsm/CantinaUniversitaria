@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../database/connection';
 import { authenticate, authorize } from '../middleware/auth';
 import { DbOrder, DbOrderItem, DbUser, mapOrder, mapOrderItem } from '../types';
+import { emitToUser, emitToRole } from '../socket';
 
 const router = Router();
 
@@ -21,6 +22,22 @@ async function getOrderWithItems(orderId: number) {
   );
 
   return mapOrder(orderRes.rows[0], itemsRes.rows.map(mapOrderItem));
+}
+
+/** Insere uma notificação no banco e emite via socket */
+async function createNotification(
+  userId: number,
+  pedidoId: number | null,
+  titulo: string,
+  mensagem: string,
+  tipo: string
+) {
+  await pool.query(
+    `INSERT INTO notificacao (mensagem, titulo, tipo, foi_lida, data_envio, fk_idpedido, fk_idusuario)
+     VALUES ($1, $2, $3, FALSE, NOW(), $4, $5)`,
+    [mensagem, titulo, tipo, pedidoId, userId]
+  );
+  emitToUser(userId, 'notification', { titulo, mensagem, tipo, order_id: pedidoId });
 }
 
 // GET /api/orders
@@ -104,11 +121,11 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
     await client.query('BEGIN');
 
     let total = 0;
-    const orderItems: Array<{ productId: number; nome: string; preco: number; qty: number; url_foto: string | null }> = [];
+    const orderItems: Array<{ productId: number; nome: string; preco: number; qty: number }> = [];
 
     for (const item of items) {
       const prodRes = await client.query(
-        'SELECT idproduto, nome, preco, quantidade, situacao, url_foto FROM produto WHERE idproduto = $1 FOR UPDATE',
+        'SELECT idproduto, nome, preco, quantidade, situacao FROM produto WHERE idproduto = $1 FOR UPDATE',
         [item.product_id]
       );
 
@@ -120,7 +137,8 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
 
       const prod = prodRes.rows[0];
 
-      if (prod.situacao !== 'disponivel') {
+      // situacao do Produto é BOOLEAN: true = disponível, false = indisponível
+      if (prod.situacao !== true) {
         await client.query('ROLLBACK');
         res.status(400).json({ error: `Produto "${prod.nome}" não está disponível` });
         return;
@@ -134,14 +152,14 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
       }
 
       const novaQtd = prod.quantidade - qty;
-      const novaSituacao = novaQtd <= 0 ? 'em_falta' : 'disponivel';
+      const novaSituacao = novaQtd > 0;
       await client.query(
-        'UPDATE produto SET quantidade = $1, situacao = $2, data_atualizacao = NOW() WHERE idproduto = $3',
+        'UPDATE produto SET quantidade = $1, situacao = $2 WHERE idproduto = $3',
         [novaQtd, novaSituacao, prod.idproduto]
       );
 
       total += Number(prod.preco) * qty;
-      orderItems.push({ productId: prod.idproduto, nome: prod.nome, preco: Number(prod.preco), qty, url_foto: prod.url_foto });
+      orderItems.push({ productId: prod.idproduto, nome: prod.nome, preco: Number(prod.preco), qty });
     }
 
     const orderRes = await client.query<DbOrder>(
@@ -155,9 +173,9 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
 
     for (const oi of orderItems) {
       await client.query(
-        `INSERT INTO itens_pedido (quantidade, nome_produto, preco_produto, subtotal, url_foto_produto, fk_idproduto, fk_idpedido)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [oi.qty, oi.nome, oi.preco, oi.preco * oi.qty, oi.url_foto, oi.productId, orderId]
+        `INSERT INTO itens_pedido (quantidade, nome_produto, preco_produto, subtotal, fk_idproduto, fk_idpedido)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [oi.qty, oi.nome, oi.preco, oi.preco * oi.qty, oi.productId, orderId]
       );
     }
 
@@ -165,6 +183,17 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
 
     const order = await getOrderWithItems(orderId);
     res.status(201).json(order);
+
+    // Notifica funcionários sobre novo pedido
+    emitToRole('funcionario', 'new_order', { order });
+    emitToRole('gerente', 'new_order', { order });
+    await createNotification(
+      req.user!.id,
+      orderId,
+      'Pedido realizado!',
+      `Seu pedido #${orderId} foi recebido e está aguardando confirmação.`,
+      'pedido_criado'
+    );
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Erro ao criar pedido:', err);
@@ -175,6 +204,7 @@ router.post('/', authenticate, authorize('cliente'), async (req: Request, res: R
 });
 
 // PATCH /api/orders/:id/status  (funcionario+)
+// Fluxo: pendente → aceito → em_preparo → pronto → retirado (ou cancelado em qualquer etapa)
 router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { status, cancel_reason } = req.body;
@@ -203,11 +233,18 @@ router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), a
     const order = orderRes.rows[0];
     const prevStatus = order.situacao;
 
+    if (prevStatus === 'retirado' || prevStatus === 'cancelado') {
+      await client.query('ROLLBACK');
+      res.status(400).json({ error: `Pedido já finalizado com status "${prevStatus}"` });
+      return;
+    }
+
     await client.query(
       `UPDATE pedido
-       SET situacao = $1, motivo_cancelamento = $2,
-           data_fim = CASE WHEN $1 IN ('retirado','cancelado') THEN NOW() ELSE data_fim END
-       WHERE idpedido = $4`,
+       SET situacao = $1::varchar,
+           motivo_cancelamento = $2,
+           data_fim = CASE WHEN $1::varchar IN ('retirado','cancelado') THEN NOW() ELSE data_fim END
+       WHERE idpedido = $3`,
       [
         status,
         status === 'cancelado' ? (cancel_reason || 'Cancelado pela cantina') : order.motivo_cancelamento,
@@ -215,7 +252,8 @@ router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), a
       ]
     );
 
-    if (status === 'cancelado' && prevStatus !== 'cancelado') {
+    // Devolver estoque se cancelado
+    if (status === 'cancelado') {
       const itemsRes = await client.query<DbOrderItem>(
         'SELECT * FROM itens_pedido WHERE fk_idpedido = $1',
         [id]
@@ -224,8 +262,7 @@ router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), a
         await client.query(
           `UPDATE produto
            SET quantidade = quantidade + $1,
-               situacao = CASE WHEN situacao = 'em_falta' THEN 'disponivel' ELSE situacao END,
-               data_atualizacao = NOW()
+               situacao = CASE WHEN quantidade + $1 > 0 THEN TRUE ELSE situacao END
            WHERE idproduto = $2`,
           [item.quantidade, item.fk_idproduto]
         );
@@ -236,6 +273,25 @@ router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), a
 
     const updated = await getOrderWithItems(Number(id));
     res.json(updated);
+
+    // Emite atualização em tempo real
+    emitToRole('funcionario', 'order_updated', { order: updated, prevStatus, newStatus: status });
+    emitToRole('gerente', 'order_updated', { order: updated, prevStatus, newStatus: status });
+    emitToUser(order.fk_idusuario, 'order_updated', { order: updated, prevStatus, newStatus: status });
+
+    // Notificação para o cliente
+    const statusMessages: Record<string, { titulo: string; mensagem: string }> = {
+      aceito:     { titulo: 'Pedido aceito!',    mensagem: `Seu pedido #${id} foi aceito pela cantina.` },
+      em_preparo: { titulo: 'Em preparo!',        mensagem: `Seu pedido #${id} está sendo preparado.` },
+      pronto:     { titulo: 'Pedido pronto!',     mensagem: `Seu pedido #${id} está pronto para retirada.` },
+      retirado:   { titulo: 'Pedido retirado!',   mensagem: `Seu pedido #${id} foi retirado. Obrigado!` },
+      cancelado:  { titulo: 'Pedido cancelado',   mensagem: `Seu pedido #${id} foi cancelado. ${cancel_reason || ''}`.trim() },
+    };
+
+    const notif = statusMessages[status];
+    if (notif) {
+      await createNotification(order.fk_idusuario, Number(id), notif.titulo, notif.mensagem, `pedido_${status}`);
+    }
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Erro ao atualizar status do pedido:', err);
@@ -245,8 +301,8 @@ router.patch('/:id/status', authenticate, authorize('funcionario', 'gerente'), a
   }
 });
 
-// PATCH /api/orders/:id/cancel  (cliente)
-router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): Promise<void> => {
+// PATCH /api/orders/:id/cancel  (cliente apenas)
+router.patch('/:id/cancel', authenticate, authorize('cliente'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const { cancel_reason } = req.body;
 
@@ -267,22 +323,15 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
 
     const order = orderRes.rows[0];
 
-    if (req.user!.role === 'cliente') {
-      if (order.fk_idusuario !== req.user!.id) {
-        await client.query('ROLLBACK');
-        res.status(403).json({ error: 'Acesso negado' });
-        return;
-      }
-      if (order.situacao !== 'pendente') {
-        await client.query('ROLLBACK');
-        res.status(400).json({ error: 'Só é possível cancelar pedidos com status pendente' });
-        return;
-      }
+    if (order.fk_idusuario !== req.user!.id) {
+      await client.query('ROLLBACK');
+      res.status(403).json({ error: 'Acesso negado' });
+      return;
     }
 
-    if (order.situacao === 'cancelado') {
+    if (order.situacao !== 'pendente') {
       await client.query('ROLLBACK');
-      res.status(400).json({ error: 'Pedido já cancelado' });
+      res.status(400).json({ error: 'Só é possível cancelar pedidos com status pendente' });
       return;
     }
 
@@ -293,12 +342,10 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
       [cancel_reason || 'Cancelado pelo cliente', id]
     );
 
-    if (req.user!.role === 'cliente') {
-      await client.query(
-        'UPDATE usuario SET qtd_cancelamentos = qtd_cancelamentos + 1 WHERE idusuario = $1',
-        [req.user!.id]
-      );
-    }
+    await client.query(
+      'UPDATE usuario SET qtd_cancelamentos = qtd_cancelamentos + 1 WHERE idusuario = $1',
+      [req.user!.id]
+    );
 
     const itemsRes = await client.query<DbOrderItem>(
       'SELECT * FROM itens_pedido WHERE fk_idpedido = $1',
@@ -308,8 +355,7 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
       await client.query(
         `UPDATE produto
          SET quantidade = quantidade + $1,
-             situacao = CASE WHEN situacao = 'em_falta' THEN 'disponivel' ELSE situacao END,
-             data_atualizacao = NOW()
+             situacao = CASE WHEN quantidade + $1 > 0 THEN TRUE ELSE situacao END
          WHERE idproduto = $2`,
         [item.quantidade, item.fk_idproduto]
       );
@@ -317,6 +363,11 @@ router.patch('/:id/cancel', authenticate, async (req: Request, res: Response): P
 
     await client.query('COMMIT');
     res.json({ message: 'Pedido cancelado com sucesso' });
+
+    // Notifica funcionários sobre o cancelamento do cliente
+    const updated = await getOrderWithItems(Number(id));
+    emitToRole('funcionario', 'order_updated', { order: updated, prevStatus: order.situacao, newStatus: 'cancelado' });
+    emitToRole('gerente', 'order_updated', { order: updated, prevStatus: order.situacao, newStatus: 'cancelado' });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Erro ao cancelar pedido:', err);

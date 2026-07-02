@@ -22,8 +22,8 @@ export interface DbProduct {
   descricao: string;
   preco: number;
   quantidade: number;
-  // VARCHAR no banco: 'disponivel' | 'em_falta' | 'inativo'
-  situacao: 'disponivel' | 'em_falta' | 'inativo';
+  // BOOLEAN no banco: true = disponível, false = em falta/inativo
+  situacao: boolean;
   url_foto: string | null;
   fk_idcategoria: number;
   // join
@@ -93,7 +93,8 @@ export function mapProduct(row: DbProduct) {
     description: row.descricao,
     price: Number(row.preco),
     quantity: row.quantidade,
-    status: row.situacao,
+    // Converte BOOLEAN do banco para string legível no frontend
+    status: row.situacao === true ? 'disponivel' : (row.quantidade <= 0 ? 'em_falta' : 'inativo'),
     image_url: row.url_foto ?? undefined,
     category_id: row.fk_idcategoria ? String(row.fk_idcategoria) : undefined,
     category_name: row.categoria_nome ?? undefined,
@@ -111,7 +112,6 @@ export function mapOrder(row: DbOrder, items: ReturnType<typeof mapOrderItem>[] 
     status: row.situacao,
     total: Number(row.valor_total),
     notes: row.observacoes ?? undefined,
-    cancelled_by: undefined as string | undefined, // coluna não existe no schema
     cancel_reason: row.motivo_cancelamento ?? undefined,
     items,
     created_at: row.data_inicio.toISOString(),
@@ -136,7 +136,6 @@ export function mapNotification(row: DbNotification) {
   return {
     id: String(row.idnotificacao),
     user_id: String(row.fk_idusuario),
-    role: undefined as string | undefined, // coluna não existe no schema
     title: row.titulo,
     message: row.mensagem,
     type: row.tipo,

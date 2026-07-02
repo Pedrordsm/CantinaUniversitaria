@@ -93,7 +93,7 @@ router.post('/', authenticate, authorize('funcionario', 'gerente'), upload.singl
 
   try {
     const qty = Number(quantity || 0);
-    const situacao = statusToBoolean(status || (qty > 0 ? 'disponivel' : 'em_falta'));
+    const situacao = status !== undefined ? statusToBoolean(status) : qty > 0;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     const result = await pool.query<DbProduct>(

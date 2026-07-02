@@ -39,13 +39,12 @@ async function seed() {
       RETURNING idcategoria, nome;
     `);
 
-    // Mapa nome → id para facilitar inserção de produtos
     const catMap: Record<string, number> = {};
     catRes.rows.forEach((r: { idcategoria: number; nome: string }) => {
       catMap[r.nome] = r.idcategoria;
     });
 
-    // Se já existiam categorias (ON CONFLICT), busca os ids
+    // Se já existiam as categorias (ON CONFLICT), busca os ids
     if (Object.keys(catMap).length === 0) {
       const existing = await client.query('SELECT idcategoria, nome FROM categoria;');
       existing.rows.forEach((r: { idcategoria: number; nome: string }) => {
@@ -55,25 +54,27 @@ async function seed() {
     console.log('✅ Categorias inseridas.');
 
     // ─── Produtos ────────────────────────────────────────────────────────────────
-    const produtos = [
-      ['X-Burguer',      'Hamburguer artesanal com queijo, alface e tomate', 12.5,  20, 'Lanches'],
-      ['X-Frango',       'Frango grelhado com queijo e maionese especial',    11.0,  15, 'Lanches'],
-      ['Misto Quente',   'Pao de forma com presunto e queijo',                 6.0,  30, 'Lanches'],
-      ['Coca-Cola Lata', 'Refrigerante gelado 350ml',                          5.0,  50, 'Bebidas'],
-      ['Suco de Laranja','Suco natural 300ml',                                  7.0,  20, 'Bebidas'],
-      ['Agua Mineral',   'Agua mineral 500ml',                                  3.0, 100, 'Bebidas'],
-      ['Cafe',           'Cafe coado 200ml',                                    4.0,  40, 'Bebidas'],
-      ['Prato Feito',    'Arroz, feijao, carne e salada',                      18.0,  10, 'Refeicoes'],
-      ['Macarrao',       'Macarrao ao molho bolonhesa',                        15.0,   8, 'Refeicoes'],
-      ['Pudim',          'Pudim de leite condensado',                           6.0,  15, 'Sobremesas'],
-      ['Brigadeiro',     'Brigadeiro artesanal',                                3.5,  25, 'Sobremesas'],
-      ['Coxinha',        'Coxinha de frango 100g',                              5.0,  30, 'Salgados'],
-      ['Esfiha',         'Esfiha de carne 80g',                                 4.5,  25, 'Salgados'],
+    // situacao é BOOLEAN: TRUE = disponível, FALSE = indisponível
+    const produtos: [string, string, number, number, string][] = [
+      ['X-Burguer',       'Hamburguer artesanal com queijo, alface e tomate', 12.5,  20, 'Lanches'],
+      ['X-Frango',        'Frango grelhado com queijo e maionese especial',    11.0,  15, 'Lanches'],
+      ['Misto Quente',    'Pao de forma com presunto e queijo',                 6.0,  30, 'Lanches'],
+      ['Coca-Cola Lata',  'Refrigerante gelado 350ml',                          5.0,  50, 'Bebidas'],
+      ['Suco de Laranja', 'Suco natural 300ml',                                  7.0,  20, 'Bebidas'],
+      ['Agua Mineral',    'Agua mineral 500ml',                                  3.0, 100, 'Bebidas'],
+      ['Cafe',            'Cafe coado 200ml',                                    4.0,  40, 'Bebidas'],
+      ['Prato Feito',     'Arroz, feijao, carne e salada',                      18.0,  10, 'Refeicoes'],
+      ['Macarrao',        'Macarrao ao molho bolonhesa',                        15.0,   8, 'Refeicoes'],
+      ['Pudim',           'Pudim de leite condensado',                           6.0,  15, 'Sobremesas'],
+      ['Brigadeiro',      'Brigadeiro artesanal',                                3.5,  25, 'Sobremesas'],
+      ['Coxinha',         'Coxinha de frango 100g',                              5.0,  30, 'Salgados'],
+      ['Esfiha',          'Esfiha de carne 80g',                                 4.5,  25, 'Salgados'],
     ];
 
     for (const [nome, descricao, preco, quantidade, catNome] of produtos) {
-      const catId = catMap[String(catNome)];
-      const situacao = Number(quantidade) > 0 ? 1 : 0;
+      const catId = catMap[catNome];
+      // BOOLEAN: TRUE se tem estoque, FALSE se não tem
+      const situacao = quantidade > 0;
       await client.query(
         `INSERT INTO produto (nome, descricao, preco, quantidade, situacao, fk_idcategoria)
          VALUES ($1, $2, $3, $4, $5, $6)

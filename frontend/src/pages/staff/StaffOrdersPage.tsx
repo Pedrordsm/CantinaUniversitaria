@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Check, X, RefreshCw } from 'lucide-react';
 import api from '../../lib/api';
 import { Order } from '../../types';
 import toast from 'react-hot-toast';
+import { useSocket } from '../../hooks/useSocket';
 
 const STATUS_LABELS: Record<string, string> = {
   pendente: 'Pendente',
@@ -45,6 +46,9 @@ export default function StaffOrdersPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const queryClient = useQueryClient();
+
+  // Atualiza pedidos em tempo real via socket
+  useSocket();
 
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ['orders', filterStatus],
