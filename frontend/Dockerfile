@@ -13,6 +13,8 @@ RUN npm run build
 FROM nginx:alpine
 # Copia os arquivos gerados no build para a pasta pública do Nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
+# Copia a configuração do Nginx com proxy para o backend
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expõe a porta padrão do Nginx
 EXPOSE 80

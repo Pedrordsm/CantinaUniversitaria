@@ -18,8 +18,19 @@ const app = express();
 const httpServer = http.createServer(app);
 
 // ─── Middlewares globais ─────────────────────────────────────────────────────
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permite requisições sem origin (ex: curl, Postman) ou origens na lista
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origem não permitida — ${origin}`));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());

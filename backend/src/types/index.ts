@@ -22,8 +22,8 @@ export interface DbProduct {
   descricao: string;
   preco: number;
   quantidade: number;
-  // BOOLEAN no banco: true = disponivel, false = em_falta
-  situacao: boolean;
+  // VARCHAR no banco: 'disponivel' | 'em_falta' | 'inativo'
+  situacao: 'disponivel' | 'em_falta' | 'inativo';
   url_foto: string | null;
   fk_idcategoria: number;
   // join
@@ -86,31 +86,19 @@ export function mapCategory(row: DbCategory) {
   };
 }
 
-// produto.situacao é BOOLEAN no banco:
-//   true  → 'disponivel'
-//   false → 'em_falta'
-// O status 'inativo' é gerenciado via coluna separada no futuro,
-// por ora usamos a lógica: quantidade=0 + situacao=false → em_falta
 export function mapProduct(row: DbProduct) {
-  let status: 'disponivel' | 'em_falta' | 'inativo';
-  if (row.situacao === true) {
-    status = 'disponivel';
-  } else {
-    status = 'em_falta';
-  }
-
   return {
     id: String(row.idproduto),
     name: row.nome,
     description: row.descricao,
     price: Number(row.preco),
     quantity: row.quantidade,
-    status,
+    status: row.situacao,
     image_url: row.url_foto ?? undefined,
     category_id: row.fk_idcategoria ? String(row.fk_idcategoria) : undefined,
     category_name: row.categoria_nome ?? undefined,
-    created_at: new Date().toISOString(), // coluna não existe no schema
-    updated_at: new Date().toISOString(), // coluna não existe no schema
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
