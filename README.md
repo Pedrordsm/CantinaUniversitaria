@@ -228,3 +228,12 @@ Os dados ficam no `localStorage` do navegador. Útil para testar a interface sem
         ├── store/          # authStore, cartStore
         └── types/
 ```
+
+---
+
+## Autores
+
+* **Gustavo Saraiva Mariano** - saraivaifes@gmail.com
+* **Matheus de Oliveira Magnago** - magnagomatheus7@gmail.com
+* **Pedro Renã da Silva Moreira** - pedrorenanmoreira@gmail.com
+* **Tertuliano dos Santos Júnior** - tertuliano.s.j@gmail.com
